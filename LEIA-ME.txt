@@ -1,0 +1,52 @@
+ANHUI - descoberta e configuracao ID 2 / 9600 / 8N1
+
+Nao precisa instalar Python para usar o executavel Windows x64.
+Conecte somente UM transdutor ao conversor RS485. Feche outros programas
+que estejam usando a porta. Use este programa apenas com o modelo cujo
+protocolo corresponde ao manual incluido.
+
+Abra PowerShell na pasta do executavel. Troque COM7 pela porta real:
+
+Apenas localizar, sem alterar:
+.\Anhui_ID2_9600.exe --port COM7 --scan-only
+
+Localizar e configurar ID 2 / 9600 / 8N1:
+.\Anhui_ID2_9600.exe --port COM7 --new-id 2
+
+Busca padrao: IDs 1..247, nas oito velocidades do manual, em 8N1.
+Uma busca sem respostas demora aproximadamente 14 minutos ou mais.
+O manual menciona IDs ate 255; este programa limita a faixa unicast
+Modbus convencional a 1..247. Nao localiza IDs 248..255.
+Sem argumentos, apenas exibe ajuda. --scan-only nunca escreve.
+Logs ficam na subpasta logs ao lado do executavel.
+O programa altera somente se encontrar exatamente uma configuracao valida.
+Confira SUCESSO no log; a leitura confirma ID/baud e medicao apos as escritas.
+Nao desconecte durante a alteracao. Em caso de falha, consulte o log para
+saber se o sensor ficou com ID novo e velocidade antiga.
+
+BASE DOCUMENTAL
+Manual original fornecido na conversa Localizar script Modbus RTU (19/10/2026):
+RS485 modbus for pressure level sensor.pdf, copiado sem alteracoes.
+Paginas 1..3: leitura FC03; escrita FC06; ID no endereco bruto 0x0000;
+baud no endereco bruto 0x0001; codigo 3 significa 9600; formato 8N1.
+Nenhum endereco de registrador foi inferido de outro fabricante.
+
+ORIGEM E ALTERACOES
+Script recuperado de D:\3-PACOTE DE PROGRAMAS\SCANNER ELECTESLA\configure_anhui_transducer.py.
+Versao entregue: padrao ID 2, busca 1..247, ajuda sem argumentos,
+logs ao lado do exe quando empacotado. Logica de protocolo preservada.
+Fonte e testes incluidos para inspecao. SHA256SUMS.txt verifica integridade,
+nao substitui assinatura digital do fornecedor. Executavel sem assinatura.
+
+VALIDACAO
+10 testes offline passaram: CRC dos exemplos do manual, descoberta somente
+leitura, ID 2, baud 9600, ACK perdido, IDs invalidos, multiplas respostas,
+restricao de escrita e parametros da versao empacotada.
+Nao houve teste com transdutor fisico nem confirmacao de persistencia
+apos desligamento. O programa nao envia comandos de salvar/reiniciar,
+pois nao ha esses comandos documentados no manual.
+
+Reproduzir testes (requer Python e pyserial):
+python -m unittest discover -p "test*.py"
+
+Compilacao: Python 3.13 x64 + PyInstaller --onefile --console.

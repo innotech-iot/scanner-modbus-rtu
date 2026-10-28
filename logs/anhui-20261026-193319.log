@@ -1,0 +1,5 @@
+2026-10-26 19:33:19,112 INFO LOG: C:\Users\Dell\Documents\Codex\2026-10-26\referenced-chatgpt-conversation-this-is-an\outputs\logs\anhui-20261026-193319.log
+2026-10-26 19:33:19,113 INFO MODO: SOMENTE LEITURA
+2026-10-26 19:33:19,113 INFO Feche Modbus Poll e outros programas que utilizem COM99999; conecte apenas o transdutor a configurar.
+2026-10-26 19:33:19,113 INFO IDs 1..247; baudrates=[9600, 19200, 4800, 38400, 1200, 2400, 57600, 115200]; paridades=['N']; timeout=0.400s
+2026-10-26 19:33:19,113 ERROR FALHA: could not open port 'COM99999': FileNotFoundError(2, 'O sistema não pode encontrar o arquivo especificado.', None, 2)

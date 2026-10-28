@@ -1,0 +1,71 @@
+ANHUI - Configurador com interface grafica para Windows x64
+
+Abra Anhui_Configurador.exe com dois cliques. Nao precisa instalar Python.
+
+COMO USAR
+1. Conecte somente um transdutor ao conversor RS485 e feche outros
+   programas que usem a porta (Modbus Poll, OpenModScan etc.).
+2. Selecione a porta COM. Use Atualizar portas se conectar o USB depois
+   de abrir a janela. A descricao do conversor aparece abaixo da porta.
+3. Clique em Detectar sensor. Esta etapa faz somente leituras.
+4. Aguarde terminar. A tela mostra o ID e a velocidade encontrados.
+5. Escolha Novo Slave ID e Novo baudrate e clique em Aplicar e verificar.
+6. Aguarde a mensagem de sucesso, que depende da confirmacao por leitura.
+
+O ID inicial sugerido e 2 e o baudrate sugerido e 9600, mas ambos podem
+ser selecionados pelo usuario. Faixa de IDs: 1 a 247, sem broadcast.
+Baudrates documentados: 1200, 2400, 4800, 9600, 19200, 38400, 57600,
+115200. Formato fixo do dispositivo: 8N1.
+
+BUSCA
+Por padrao, busca IDs 1..247 nas oito velocidades do manual.
+Uma busca completa pode levar 14 minutos ou mais. A janela continua
+respondendo e mostra o progresso. Parar busca nao altera o sensor,
+mas exige uma nova busca completa antes de habilitar a configuracao.
+Se souber a velocidade atual, selecione-a para reduzir o tempo da busca.
+Tambem pode reduzir o ID maximo da busca. IDs fora da faixa escolhida
+nao serao detectados. O manual menciona ate 255; esta versao usa a faixa
+unicast Modbus convencional 1..247.
+
+A configuracao so fica disponivel apos exatamente uma resposta valida.
+Ao trocar ou atualizar a porta, a deteccao anterior e descartada.
+Antes de escrever, ID e velocidade atuais sao conferidos novamente.
+O programa escreve o novo ID, verifica, muda o baudrate e verifica de novo.
+Se os valores ja forem os desejados, nao faz escritas desnecessarias.
+Se uma confirmacao se perder, verifica por leitura sem repetir a escrita.
+Se houver falha apos uma escrita, pode haver uma configuracao parcial:
+consulte o log e detecte novamente. Nao desconecte durante Aplicar.
+
+LOGS
+Os logs ficam em logs ao lado do executavel. Se a pasta nao permitir
+gravar, usa %LOCALAPPDATA%\AnhuiConfigurador\logs. O caminho real aparece
+no rodape da janela. O historico visivel mostra as ultimas linhas;
+o arquivo mantem o historico completo da sessao.
+
+MANUAL E COMPATIBILIDADE
+Use com o modelo que segue o manual fornecido:
+Manual_Anhui_Modbus.pdf (original RS485 modbus for pressure level sensor.pdf).
+Paginas 1..3: FC03 para leitura; FC06 para escrita; ID em 0x0000;
+baudrate em 0x0001, codigos 0..7 correspondendo as velocidades acima.
+Nenhum endereco de registrador foi inventado ou copiado de outro fabricante.
+O programa nao envia comandos de salvar ou reiniciar, pois nao estao
+documentados no manual. Persistencia apos desligar ainda nao testada.
+
+VALIDACAO DA ENTREGA
+24 testes offline passaram: protocolo, todas as velocidades, ID selecionavel,
+confirmacao perdida, dados divergentes, cancelamento, troca de porta,
+bloqueio com multiplas respostas, entradas invalidas e fluxo da janela
+com sensor simulado. O executavel Windows x64 foi aberto e a interface
+e o seletor de baudrate foram inspecionados visualmente.
+Nao foi conectado nem configurado um transdutor fisico durante a validacao.
+
+INTEGRIDADE E FONTES
+SHA256_Interface_Grafica.txt permite conferir a integridade do executavel
+e dos demais arquivos. O executavel nao possui assinatura digital.
+O pacote ZIP inclui o manual e os arquivos fonte/testes na pasta fontes.
+
+Para executar os testes com Python, instale pyserial e, na pasta fontes:
+python -m unittest discover -p "test*.py"
+
+Para recompilar com Python 3.13 x64 e PyInstaller 6.22.3, na pasta fontes:
+python -m PyInstaller --onefile --windowed --name Anhui_Configurador anhui_gui.py

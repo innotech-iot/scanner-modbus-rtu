@@ -1,0 +1,63 @@
+INNOTECH - Scanner I2C para ESP32-S3 WROOM
+
+Configuracao solicitada:
+SDA = GPIO8
+SCL = GPIO9
+Frequencia I2C = 100 kHz
+Console = UART0 / COM11, 115200 baud, 8N1
+O programa nao usa Wi-Fi nem PSRAM.
+
+Depois de gravar e reiniciar, a varredura comeca automaticamente e repete
+a cada 5 segundos. Procura enderecos de 7 bits de 0x08 ate 0x77.
+Envia somente o endereco para verificar ACK: nao envia registradores
+nem bytes de dados aos dispositivos.
+
+Exemplo de formato de saida (EXEMPLO; nao e resultado da sua placa):
+FOUND 0x3C  decimal=60  endereco de 7 bits
+SCAN_END encontrados=1 erros=0
+
+Comandos no monitor serial, terminados com Enter:
+SCAN          nova varredura imediata
+AUTO OFF      pausa repeticao
+AUTO ON       retoma repeticao
+STATUS        mostra os pinos e estado atual
+PINS 8 9      seleciona SDA8/SCL9 e reinicia as buscas
+HELP          ajuda
+
+PINS permite mudar os GPIOs durante a sessao, mas nao grava essa mudanca
+na flash. Ao reiniciar, volta para SDA8 e SCL9.
+O comando bloqueia pinos de flash/PSRAM, USB, UART do console e strapping.
+
+Ligacao: SDA ao GPIO8, SCL ao GPIO9 e GND comum. Use niveis e pull-ups
+compativeis com 3,3 V; verifique a alimentacao e os pull-ups do seu modulo.
+Endereco encontrado nao identifica automaticamente o modelo do componente.
+Se SDA ou SCL permanecerem baixos, o firmware informa BUS_OCUPADO.
+Nao confunde erros de comunicacao com enderecos encontrados.
+
+PACOTE
+ESP32S3_I2C_SDA8_SCL9_Completo.bin: imagem combinada para gravar em 0x0.
+Firmware/firmware.bin: somente aplicativo, offset 0x10000.
+Projeto/: fontes e configuracao PlatformIO.
+SHA256_ESP32S3_I2C.txt: verificacao de integridade.
+
+Compilacao: PlatformIO espressif32 6.11.0, Arduino ESP32 2.0.17,
+ESP32-S3, flash DIO 80 MHz, layout 4 MB, sem PSRAM.
+O modelo exato e a capacidade real de flash nao foram confirmados por
+leitura do chip: a COM11 abriu, mas a sincronizacao esptool nao respondeu.
+O firmware compilou; ainda nao foi gravado nem validado no hardware.
+
+Para gravar com PlatformIO, na pasta Projeto:
+pio run -e esp32s3 -t upload --upload-port COM11
+
+Se nao conectar automaticamente: segure BOOT, aperte e solte RESET/EN,
+solte BOOT e tente a gravacao novamente. Feche outros monitores seriais.
+Depois da gravacao, aperte RESET/EN para iniciar o programa.
+
+Para gravar a imagem combinada com esptool 4.x:
+python -m esptool --chip esp32s3 --port COM11 --baud 115200 write_flash 0x0 ESP32S3_I2C_SDA8_SCL9_Completo.bin
+
+Para ler a saida com PlatformIO:
+pio device monitor --port COM11 --baud 115200
+
+Referencia oficial da API Wire:
+https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2c.html

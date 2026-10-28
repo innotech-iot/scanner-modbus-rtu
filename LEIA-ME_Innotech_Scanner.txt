@@ -1,0 +1,106 @@
+INNOTECH | Scanner de Slave Perdido
+Windows x64 - abre com dois cliques, sem instalar Python.
+
+1. ENCONTRAR DISPOSITIVO
+Selecione a porta COM e clique em Encontrar dispositivos.
+A busca padrao usa IDs 1..247 nas velocidades 9600, 19200, 4800, 38400,
+1200, 2400, 57600 e 115200, em 8N1. Se souber a velocidade, escolha-a
+para acelerar. Uma busca completa pode levar 14 minutos ou mais.
+
+A consulta padrao e FC03 no offset 0. Ela nao pressupoe nenhum mapa de
+fabricante. Uma resposta de excecao Modbus com CRC valido tambem prova
+que um ID respondeu; nao prova que o endereco consultado seja legivel.
+Se o dispositivo ignorar essa consulta, tente outra funcao de descoberta
+(01, 02 ou 04) ou um endereco conhecido do manual.
+Dispositivos em outro formato serial (paridade/stop bits) nao sao cobertos:
+esta versao usa 8N1. Nao e scanner Modbus TCP.
+
+Ao concluir, selecione o dispositivo na lista e va para Explorar tabelas.
+Porta, ID e baudrate selecionados ficam visiveis acima das abas.
+
+2. EXPLORAR TABELAS - SOMENTE LEITURA
+Selecione uma ou mais tabelas:
+FC01: Coils / saidas digitais (bits)
+FC02: Entradas digitais (bits)
+FC03: Holding Registers (palavras de 16 bits)
+FC04: Input Registers (palavras de 16 bits)
+
+Escolha endereco inicial e final e clique em Buscar registradores.
+Os enderecos sao offsets brutos de 0 a 65535. Pode usar decimal ou 0xHEX.
+Exemplo: para o registrador convencional 40001, use FC03 e offset 0.
+A referencia convencional e apenas auxiliar; acima do offset 9998 ela
+fica sem exibicao para evitar ambiguidades com notacao estendida.
+Enderecos sao consultados individualmente para encontrar mapas com lacunas.
+Grandes faixas e dispositivos que nao respondem podem demorar bastante:
+65536 enderecos com timeout de 0,4 s podem levar cerca de 7,5 horas POR
+tabela. Comece com uma faixa pequena. Parar busca preserva dados obtidos.
+
+A grade mostra todas as leituras validas, inclusive zero. O filtro
+So valores diferentes de 0 apenas altera a exibicao; nao altera a coleta.
+Exportar CSV salva TODAS as leituras validas da busca, incluindo zeros,
+com porta, ID, velocidade, tabela, offset, referencia e valores brutos.
+
+Para registradores de 16 bits, exibe UInt16, Int16 e hexadecimal.
+Essas sao representacoes dos mesmos bits. Nao infere unidade, escala,
+Float32, ordem de palavras, significado de parametros ou permissao de escrita.
+Um endereco legivel nao e necessariamente um parametro configuravel.
+O significado correto ainda depende do manual do fabricante.
+
+O resumo distingue enderecos invalidos, funcoes nao suportadas,
+outras excecoes e consultas sem resposta/CRC valido. A exploracao usa
+somente FC01/02/03/04, nunca comandos de escrita em tabelas.
+Leituras podem ter efeitos especificos em alguns dispositivos, como
+limpar contadores; siga as orientacoes do fabricante do equipamento.
+
+3. CONFIGURAR TRANSDUTOR - PERFIL DOCUMENTADO
+O modo padrao e Somente leitura - generico.
+A descoberta generica NAO identifica fabricante ou modelo.
+Para mudar ID e baudrate, selecione o perfil de transdutor de pressao/nivel
+somente no equipamento que corresponde ao Manual_Anhui_Modbus.pdf incluido.
+Conecte SOMENTE UM dispositivo para essa etapa.
+
+O perfil mantem o protocolo original conferido nas paginas 1..3 do manual:
+FC03 para leitura, FC06 para escrita, ID no offset 0, baudrate no offset 1,
+com codigos 0..7 para 1200,2400,4800,9600,19200,38400,57600,115200.
+IDs de destino 1..247. Nenhum registrador de outro equipamento foi inventado.
+O perfil confere ID, velocidade e dados do sensor antes de escrever e
+verifica por leitura apos cada alteracao. Se a confirmacao da escrita se
+perder, nao repete a escrita: verifica a nova configuracao por leitura.
+Se ocorrer falha, consulte o log e detecte novamente: a configuracao pode
+ter ficado parcial. Aguarde terminar antes de fechar ou desconectar.
+Nao ha comando de salvar/reiniciar documentado; persistencia apos desligar
+continua dependendo de teste fisico.
+
+IDENTIDADE E LOGS
+Logo Innotech recuperada de D:\1-DOCUMENTACAO INNOTECH\Logo amarela.png,
+convertida para os tamanhos de icone do Windows. Embutida no EXE e usada
+na barra de titulo e no cabecalho. Nao e necessaria nenhuma imagem externa.
+Logs ficam em logs ao lado do EXE. Se nao houver permissao, usa
+%LOCALAPPDATA%\InnotechScanner\logs. O caminho aparece no rodape.
+
+VERIFICACAO
+40 testes offline: protocolo original, oito baudrates do perfil,
+descoberta generica inclusive excecao, quatro tabelas, bits LSB-first,
+CRC/quantidade de bytes/ID divergente, enderecos esparsos, zeros,
+cancelamento, troca de porta, filtros, exportacao CSV e interface simulada.
+O executavel Windows x64 com subsistema grafico e recursos de icone
+foi conferido. Nao houve configuracao de equipamento fisico nesta entrega.
+
+FONTES TECNICAS
+Protocolo generico: Modbus Application Protocol Specification V1.1b3:
+https://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b3.pdf
+Resumo oficial das quatro tabelas:
+https://www.modbus.org/introduction-to-modbus
+Perfil de escrita: Manual_Anhui_Modbus.pdf, original fornecido pelo usuario.
+
+FONTES E RECOMPILACAO
+Fontes e testes na pasta Fontes_Innotech_Scanner do pacote ZIP.
+Python 3.13 x64, pyserial 3.5, Pillow para conversao da logo,
+PyInstaller 6.22.3 para o executavel. A biblioteca grafica e Tkinter.
+Na pasta dos fontes, execute os testes:
+python -m unittest discover -p "test*.py"
+Para recompilar:
+python -m PyInstaller --onefile --windowed --name Innotech_Scanner_de_Slave_Perdido --icon scanner_assets/innotech.ico --add-data "scanner_assets;scanner_assets" innotech_scanner.py
+
+SHA256_Innotech_Scanner.txt contem os hashes para verificar integridade.
+O executavel nao possui assinatura digital de fornecedor.
