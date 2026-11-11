@@ -2,6 +2,7 @@
 Modbus Application Protocol V1.1b3, FC01/02/03/04.
 Vendor-specific writes remain confined to anhui_gui_core's documented profile.
 """
+from itertools import product
 import struct
 import configure_anhui_transducer as p
 import anhui_gui_core as vendor
@@ -58,13 +59,14 @@ def reference(fc,address):
     # Conventional five-digit notation is ambiguous beyond 9999 offsets.
     return f'{ {1:0,2:10000,3:40000,4:30000}[fc]+address+1:05d}' if address<9999 else '—'
 
-def discover(bus,baudrates,ids,fc,address,cancel,progress):
+def discover(bus,baudrates,ids,fc,address,cancel,progress,*,parities=('N',)):
     if fc not in TABLES or not 0<=address<=65535:raise ValueError('Consulta de descoberta inválida')
-    baudrates=tuple(baudrates);ids=tuple(ids)
-    total=len(baudrates)*len(ids);done=0;found=[]
-    for baud in baudrates:
+    settings = tuple(product(baudrates, parities))
+    ids=tuple(ids)
+    total=len(settings)*len(ids);done=0;found=[]
+    for baud, parity in settings:
         if cancel.is_set():raise Cancelled()
-        bus.configure(baud,'N')
+        bus.configure(baud,parity)
         for sid in ids:
             if cancel.is_set():raise Cancelled()
             responded=False;detail='leitura válida'
@@ -76,12 +78,25 @@ def discover(bus,baudrates,ids,fc,address,cancel,progress):
                 responded=True;detail=str(error)
             except p.CommunicationError:pass
             if responded:
-                found.append((baud,'N',sid))
-                p.LOG.info('Encontrado ID=%d / %d baud: %s',sid,baud,detail)
+                found.append((baud,parity,sid))
+                p.LOG.info('Encontrado ID=%d / %d baud / 8%s1: %s',sid,baud,parity,detail)
             done+=1
             progress(done,total,baud,sid,tuple(found))
     if cancel.is_set():raise Cancelled()
     return found
+
+def read_anhui_float32(bus, sid):
+    fc = 3
+    try:
+        words = bus.read_table(sid, fc, 0x0016, 2)
+    except ExceptionResponse as error:
+        if error.code not in (1, 2):
+            raise
+        fc = 4
+        words = bus.read_table(sid, fc, 0x0016, 2)
+    value, = struct.unpack('>f', struct.pack('>HH', *words))
+    return fc, value
+
 
 def explore(bus,sid,tables,start,end,cancel,on_row,progress):
     tables=tuple(tables)

@@ -94,3 +94,35 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(s.reference(1,0),'00001')
         self.assertEqual(s.reference(2,0),'10001')
         self.assertEqual(s.reference(3,65535),'—')
+
+    def test_discovery_reports_even_and_odd_endpoints(self):
+        class Device:
+            def configure(self, baud, parity):
+                self.parity = parity
+
+            def read_table(self, sid, fc, address, count):
+                if (self.parity, sid) not in [('E', 1), ('O', 2)]:
+                    raise p.CommunicationError('timeout')
+                return [sid]
+
+        progress = []
+        found = s.discover(Device(), [9600], [1, 2], 3, 0, threading.Event(),
+                           lambda *x: progress.append(x), parities=('N', 'E', 'O'))
+        self.assertEqual(found, [(9600, 'E', 1), (9600, 'O', 2)])
+        self.assertEqual(progress[-1][:2], (6, 6))
+
+    @patch.object(p.time, 'sleep')
+    def test_anhui_float_reads_two_registers_in_one_request(self, _):
+        payload = bytes([7, 3, 4]) + struct.pack('>f', -12.625)
+        bus = bus_for(p.frame(payload))
+        self.assertEqual(s.read_anhui_float32(bus, 7), (3, -12.625))
+        self.assertEqual(bus.port.sent, [p.frame(struct.pack('>BBHH', 7, 3, 0x16, 2))])
+
+    def test_anhui_float_tries_fc04_when_fc03_is_unsupported(self):
+        class Device:
+            def read_table(self, sid, fc, address, count):
+                if fc == 3:
+                    raise s.ExceptionResponse(1)
+                return [0x3FC0, 0]
+
+        self.assertEqual(s.read_anhui_float32(Device(), 7), (4, 1.5))

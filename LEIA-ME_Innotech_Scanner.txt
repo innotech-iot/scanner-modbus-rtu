@@ -2,21 +2,24 @@ INNOTECH | Scanner de Slave Perdido
 Windows x64 - abre com dois cliques, sem instalar Python.
 
 1. ENCONTRAR DISPOSITIVO
-Selecione a porta COM e clique em Encontrar dispositivos.
+Selecione a porta COM do conversor USB/RS485 e clique em Encontrar
+dispositivos. A lista prioriza portas USB. Portas Bluetooth ficam disponiveis
+para selecao manual.
 A busca padrao usa IDs 1..247 nas velocidades 9600, 19200, 4800, 38400,
-1200, 2400, 57600 e 115200, em 8N1. Se souber a velocidade, escolha-a
-para acelerar. Uma busca completa pode levar 14 minutos ou mais.
+1200, 2400, 57600 e 115200. A paridade inicial e 8N1. Escolha 8E1
+(par), 8O1 (impar) ou Todas. Se souber a velocidade e a paridade,
+selecione-as para acelerar a busca.
 
 A consulta padrao e FC03 no offset 0. Ela nao pressupoe nenhum mapa de
 fabricante. Uma resposta de excecao Modbus com CRC valido tambem prova
 que um ID respondeu; nao prova que o endereco consultado seja legivel.
 Se o dispositivo ignorar essa consulta, tente outra funcao de descoberta
 (01, 02 ou 04) ou um endereco conhecido do manual.
-Dispositivos em outro formato serial (paridade/stop bits) nao sao cobertos:
-esta versao usa 8N1. Nao e scanner Modbus TCP.
+A busca usa oito bits de dados e um bit de parada em Modbus RTU.
 
 Ao concluir, selecione o dispositivo na lista e va para Explorar tabelas.
-Porta, ID e baudrate selecionados ficam visiveis acima das abas.
+Porta, ID, baudrate e paridade ficam visiveis acima das abas. A leitura
+e a gravacao usam a paridade encontrada.
 
 2. EXPLORAR TABELAS - SOMENTE LEITURA
 Selecione uma ou mais tabelas:
@@ -42,7 +45,12 @@ com porta, ID, velocidade, tabela, offset, referencia e valores brutos.
 
 Para registradores de 16 bits, exibe UInt16, Int16 e hexadecimal.
 Essas sao representacoes dos mesmos bits. Nao infere unidade, escala,
-Float32, ordem de palavras, significado de parametros ou permissao de escrita.
+ordem de palavras, significado de parametros ou permissao de escrita.
+Para o Anhui do manual atualizado, clique em Ler Float32 Anhui. O scanner
+le os offsets 0x0016 e 0x0017 na mesma consulta, no formato IEEE 754 ABCD,
+e mostra a medicao ao lado do botao. Usa FC03 e tenta FC04 se a funcao
+ou o endereco for rejeitado.
+
 Um endereco legivel nao e necessariamente um parametro configuravel.
 O significado correto ainda depende do manual do fabricante.
 
@@ -56,42 +64,49 @@ limpar contadores; siga as orientacoes do fabricante do equipamento.
 O modo padrao e Somente leitura - generico.
 A descoberta generica NAO identifica fabricante ou modelo.
 Para mudar ID e baudrate, selecione o perfil de transdutor de pressao/nivel
-somente no equipamento que corresponde ao Manual_Anhui_Modbus.pdf incluido.
+somente no equipamento que corresponde ao manual escolhido.
 Conecte SOMENTE UM dispositivo para essa etapa.
 
 O perfil mantem o protocolo original conferido nas paginas 1..3 do manual:
 FC03 para leitura, FC06 para escrita, ID no offset 0, baudrate no offset 1,
 com codigos 0..7 para 1200,2400,4800,9600,19200,38400,57600,115200.
 IDs de destino 1..247. Nenhum registrador de outro equipamento foi inventado.
-O perfil confere ID, velocidade e dados do sensor antes de escrever e
+O perfil confere ID e velocidade antes de escrever e
 verifica por leitura apos cada alteracao. Se a confirmacao da escrita se
 perder, nao repete a escrita: verifica a nova configuracao por leitura.
 Se ocorrer falha, consulte o log e detecte novamente: a configuracao pode
 ter ficado parcial. Aguarde terminar antes de fechar ou desconectar.
-Nao ha comando de salvar/reiniciar documentado; persistencia apos desligar
-continua dependendo de teste fisico.
+Aplicar e gravar envia FC06, valor 0, ao offset 0x000F no novo ID e baudrate.
+Esse comando foi validado no Anhui em bancada: ID 1 para 2 a 9600 baud,
+com leitura do ID 2 depois de desligar e religar. Apos gravar outro sensor,
+desligue, religue e faca uma nova busca para confirmar a persistencia.
+
+Escolha o perfil Anhui conforme o manual da sua unidade. O perfil atualizado
+interpreta as unidades da tabela nova e aceita ate quatro casas decimais.
+O perfil anterior usa a tabela original. A leitura da medicao vai para o
+log quando disponivel e independe da confirmacao do ID e do baudrate.
 
 IDENTIDADE E LOGS
-Logo Innotech recuperada de D:\1-DOCUMENTACAO INNOTECH\Logo amarela.png,
-convertida para os tamanhos de icone do Windows. Embutida no EXE e usada
-na barra de titulo e no cabecalho. Nao e necessaria nenhuma imagem externa.
+A nova logo horizontal Innotech aparece no cabecalho. O simbolo e usado
+no icone da janela e do executavel. As imagens estao embutidas no EXE.
 Logs ficam em logs ao lado do EXE. Se nao houver permissao, usa
 %LOCALAPPDATA%\InnotechScanner\logs. O caminho aparece no rodape.
 
 VERIFICACAO
-40 testes offline: protocolo original, oito baudrates do perfil,
+50 testes offline: protocolo original, oito baudrates do perfil,
 descoberta generica inclusive excecao, quatro tabelas, bits LSB-first,
 CRC/quantidade de bytes/ID divergente, enderecos esparsos, zeros,
 cancelamento, troca de porta, filtros, exportacao CSV e interface simulada.
 O executavel Windows x64 com subsistema grafico e recursos de icone
-foi conferido. Nao houve configuracao de equipamento fisico nesta entrega.
+foi conferido.
 
 FONTES TECNICAS
 Protocolo generico: Modbus Application Protocol Specification V1.1b3:
 https://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b3.pdf
 Resumo oficial das quatro tabelas:
 https://www.modbus.org/introduction-to-modbus
-Perfil de escrita: Manual_Anhui_Modbus.pdf, original fornecido pelo usuario.
+Manuais dos perfis Anhui: Manual_Anhui_Modbus.pdf (anterior) e
+Manual_Anhui_Modbus_Atualizado.pdf (atualizado).
 
 FONTES E RECOMPILACAO
 Fontes e testes na pasta Fontes_Innotech_Scanner do pacote ZIP.

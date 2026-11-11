@@ -60,7 +60,7 @@ class ScannerWindowTests(unittest.TestCase):
         self.app.new_id.set('23');self.app.new_baud.set('38400')
         with patch.object(gui.scan,'Bus',return_value=bus):self.app.apply();self.pump()
         self.assertEqual((bus.sid,bus.baud),(23,38400))
-        self.assertIn('Sucesso',self.app.status.get())
+        self.assertIn('Gravação confirmada',self.app.status.get())
     def test_changing_port_clears_readings_and_endpoint(self):
         self.detect(Device());self.app.port.set('COM_OTHER')
         self.assertIsNone(self.app.endpoint);self.assertEqual(self.app.rows,[])
@@ -71,3 +71,55 @@ class ScannerWindowTests(unittest.TestCase):
     def test_offset_parse_accepts_decimal_and_hex_without_base_guessing(self):
         self.assertEqual(self.app.number('0010'),10)
         self.assertEqual(self.app.number('0x10'),16)
+
+    def test_float_button_uses_discovered_parity_and_never_writes(self):
+        class EvenDevice(Device):
+            def configure(self, baud, parity):
+                super().configure(baud, parity)
+                self.host_parity = parity
+
+            def read_table(self, sid, fc, address, count):
+                if self.host_parity != 'E' or sid != self.sid:
+                    raise gui.protocol.CommunicationError('timeout')
+                if address == 0x0016 and count == 2:
+                    return [0xC148, 0]
+                return super().read_table(sid, fc, address, count)
+
+        bus = EvenDevice()
+        self.app.scan_parity.set('Todas')
+        self.detect(bus)
+        self.assertEqual(self.app.endpoint, ('COM_TEST', 19200, 'E', 7))
+        self.assertIn('8E1', self.app.selection_text.get())
+        with patch.object(gui.scan, 'Bus', return_value=bus):
+            self.app.float_button.invoke()
+            self.pump()
+        self.assertIn('-12.5', self.app.float_result.get())
+        self.assertEqual(bus.writes, [])
+
+    def test_port_selection_prefers_usb_to_bluetooth(self):
+        ports = [
+            SimpleNamespace(device='COM4', description='Bluetooth', hwid='BTHENUM'),
+            SimpleNamespace(device='COM7', description='USB Serial Port', vid=0x0403),
+        ]
+        with patch.object(gui.list_ports, 'comports', return_value=ports):
+            self.app.refresh_ports()
+            self.assertEqual(self.app.port.get(), 'COM7')
+            self.assertEqual(tuple(self.app.port_box['values']), ('COM7', 'COM4'))
+            self.app.port.set('COM4')
+            self.app.refresh_ports()
+            self.assertEqual(self.app.port.get(), 'COM4')
+
+    def test_bluetooth_open_error_points_to_usb_port(self):
+        ports = [
+            SimpleNamespace(device='COM4', description='Bluetooth', hwid='BTHENUM'),
+            SimpleNamespace(device='COM7', description='USB Serial Port', vid=0x0403),
+        ]
+        with patch.object(gui.list_ports, 'comports', return_value=ports):
+            self.app.refresh_ports()
+        self.app.port.set('COM4')
+        with patch.object(gui.scan, 'Bus', side_effect=gui.SerialException('Windows 121')):
+            self.app.detect()
+            self.pump()
+        self.assertIn('COM4 (Bluetooth)', self.app.status.get())
+        self.assertIn('COM7', self.app.status.get())
+        self.assertNotIn('Windows 121', self.app.status.get())

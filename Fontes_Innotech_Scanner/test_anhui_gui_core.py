@@ -24,7 +24,7 @@ class Sensor:
         self.writes.append((sid,address,value))
         if address == 0: self.sid=value
         elif address == 1: self.baud=p.CODE_BAUDS[value]
-        else: raise AssertionError('Undocumented write')
+        elif (address, value) != (0x000F, 0): raise AssertionError('Undocumented write')
         if self.lose_ack: raise p.CommunicationError('ACK lost')
 
 
@@ -46,6 +46,63 @@ class CoreTests(unittest.TestCase):
         g.configure(bus,[(19200,'N',7)],7,19200)
         self.assertEqual(bus.writes,[])
 
+    @patch.object(p.time, 'sleep')
+    def test_save_uses_verified_new_id_and_baud(self, _):
+        bus = Sensor()
+        original_write = bus.write
+        def accept_save(sid, address, value):
+            if address == 0x000F:
+                self.assertEqual((sid, value, bus.host_baud), (23, 0, 9600))
+            else:
+                original_write(sid, address, value)
+        bus.write = unittest.mock.Mock(side_effect=accept_save)
+        g.configure(bus, [(19200, 'N', 7)], 23, 9600, save=True)
+        self.assertEqual(bus.write.call_args_list, [
+            unittest.mock.call(7, 0, 23),
+            unittest.mock.call(23, 1, 3),
+            unittest.mock.call(23, 0x000F, 0),
+        ])
+
+    @patch.object(p.time, 'sleep')
+    def test_unconfirmed_save_is_reported_without_retry(self, _):
+        bus = Sensor()
+        bus.write = unittest.mock.Mock(side_effect=p.CommunicationError('timeout'))
+        with self.assertRaisesRegex(p.CommunicationError, 'grava'):
+            g.configure(bus, [(19200, 'N', 7)], 7, 19200, save=True)
+        bus.write.assert_called_once_with(7, 0x000F, 0)
+
+    @patch.object(p.time, 'sleep')
+    def test_save_with_updated_units_and_four_decimals(self, _):
+        bus = Sensor()
+        original_read = bus.read
+
+        def read(sid, address, count):
+            data = original_read(sid, address, count)
+            return {2: b'\x00\x11', 3: b'\x00\x04'}.get(address, data)
+
+        bus.read = read
+        with self.assertLogs(p.LOG, 'INFO') as logs:
+            value = g.configure(bus, [(19200, 'N', 7)], 23, 19200,
+                                save=True, updated_manual=True)
+        self.assertAlmostEqual(value, -0.0123)
+        self.assertTrue(any('-0.0123 cm' in line for line in logs.output))
+        self.assertEqual(bus.writes[-1], (23, 0x000F, 0))
+
+    @patch.object(p.time, 'sleep')
+    def test_save_when_measurement_is_unavailable(self, _):
+        bus = Sensor()
+        original_read = bus.read
+
+        def read(sid, address, count):
+            if address == 4:
+                raise p.CommunicationError('measurement timeout')
+            return original_read(sid, address, count)
+
+        bus.read = read
+        self.assertIsNone(g.configure(bus, [(19200, 'N', 7)], 23, 19200,
+                                      save=True, updated_manual=True))
+        self.assertEqual(bus.writes, [(7, 0, 23), (23, 0x000F, 0)])
+
     def test_invalid_values_and_ambiguous_detection_never_write(self):
         for found,sid,baud in [([],2,9600),([(9600,'N',1),(9600,'N',2)],2,9600), ([(19200,'N',7)],0,9600), ([(19200,'N',7)],248,9600), ([(19200,'N',7)],2,14400)]:
             bus=Sensor()
@@ -56,8 +113,9 @@ class CoreTests(unittest.TestCase):
     def test_write_allowlist_includes_only_documented_addresses_and_codes(self):
         bus=object.__new__(g.Bus)
         bus.exchange=lambda payload:p.frame(payload)
+        bus.write(7, 0x000F, 0)
         for code in p.CODE_BAUDS: bus.write(7,1,code)
-        for address,value in [(1,8),(1,-1),(2,1),(5,0),(0,0),(0,248)]:
+        for address,value in [(0x000F,1),(1,8),(1,-1),(2,1),(5,0),(0,0),(0,248)]:
             with self.assertRaises(ValueError): bus.write(7,address,value)
 
     def test_scan_is_read_only_and_reports_progress(self):

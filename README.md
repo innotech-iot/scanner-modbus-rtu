@@ -1,17 +1,17 @@
 # Innotech — Scanner de Slave Perdido
 
-Scanner Modbus RTU para Windows, com descoberta de Slave ID/baudrate, exploração de tabelas e um perfil documentado para configuração do transdutor de pressão/nível.
+Scanner Modbus RTU para Windows, com descoberta de Slave ID, baudrate e paridade, exploração de tabelas e perfis para configurar transdutores Anhui.
 
 ## Executar no Windows
 
 Abra **[Innotech_Scanner_de_Slave_Perdido.exe](Innotech_Scanner_de_Slave_Perdido.exe)** com dois cliques. Não precisa instalar Python.
 
 1. Selecione a porta do conversor USB/RS485.
-2. Clique em **Encontrar dispositivos** e selecione o resultado.
+2. Escolha **8N1**, **8E1**, **8O1** ou **Todas** e clique em **Encontrar dispositivos**.
 3. Na aba **Explorar tabelas**, escolha as funções e a faixa de endereços.
-4. Consulte os valores brutos ou exporte para CSV.
+4. Consulte os valores brutos ou exporte para CSV. Para o Anhui do manual atualizado, use **Ler Float32 Anhui** para ler a medição em `0x0016–0x0017`.
 
-A descoberta e a exploração são somente leitura. A alteração de ID e baudrate exige selecionar o perfil do transdutor correspondente ao manual incluído; não existe mapa universal de configuração Modbus.
+A descoberta e a exploração são somente leitura. Para mudar o ID ou o baudrate, selecione o perfil Anhui correspondente ao manual da unidade e clique em **Aplicar e gravar**. O scanner prioriza portas USB na seleção inicial.
 
 Leia [as instruções completas](LEIA-ME_Innotech_Scanner.txt) para limites da busca, endereçamento, configuração serial e interpretação dos resultados.
 
@@ -22,7 +22,8 @@ Leia [as instruções completas](LEIA-ME_Innotech_Scanner.txt) para limites da b
 | `Innotech_Scanner_de_Slave_Perdido.exe` | Interface principal com identidade Innotech |
 | `Innotech_Scanner_de_Slave_Perdido_Pacote.zip` | Distribuição completa do scanner |
 | `Fontes_Innotech_Scanner/` | Código Python, recursos gráficos e testes |
-| `Manual_Anhui_Modbus.pdf` | Manual que fundamenta o perfil específico de escrita |
+| `Manual_Anhui_Modbus.pdf` | Manual do perfil Anhui anterior |
+| `Manual_Anhui_Modbus_Atualizado.pdf` | Manual do perfil Anhui atualizado |
 | `configure_anhui_transducer.py` | Script de descoberta/configuração para ID 2 e 9600 baud |
 | `Anhui_Configurador*`, `Anhui_ID2_9600*`, `Anhui_Fontes_GUI/` | Versões anteriores e respectivos fontes/pacotes |
 | `ESP32S3_I2C_SDA8_SCL9*` | Firmware e projeto auxiliar de scanner I²C, SDA GPIO8 / SCL GPIO9 |

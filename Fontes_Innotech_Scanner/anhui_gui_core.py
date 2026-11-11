@@ -2,6 +2,9 @@
 import configure_anhui_transducer as p
 
 
+SAVE_REGISTER = 0x000F
+
+
 class ScanCancelled(Exception):
     pass
 
@@ -9,7 +12,8 @@ class ScanCancelled(Exception):
 class Bus(p.Bus):
     def write(self, sid, address, value):
         if not ((address == 0 and 1 <= value <= 247) or
-                (address == 1 and value in p.CODE_BAUDS)):
+                (address == 1 and value in p.CODE_BAUDS) or
+                (address == SAVE_REGISTER and value == 0)):
             raise ValueError('ID ou codigo de baudrate fora do manual/faixa permitida')
         payload = p.write_payload(sid, address, value)
         response = self.exchange(payload)
@@ -49,7 +53,7 @@ def discover(bus, baudrates, ids, cancel, progress):
     return found
 
 
-def configure(bus, found, new_id, new_baud):
+def configure(bus, found, new_id, new_baud, *, save=False, updated_manual=False):
     if not 1 <= new_id <= 247:
         raise ValueError('Slave ID deve ser de 1 a 247')
     if new_baud not in p.BAUD_CODES:
@@ -57,27 +61,40 @@ def configure(bus, found, new_id, new_baud):
     if len(found) != 1:
         raise p.CommunicationError('E necessario detectar exatamente um sensor antes de configurar')
     baud, parity, sid = found[0]
-    if parity != 'N':
-        raise p.CommunicationError('O manual exige 8N1')
-    p.verify(bus, baud, sid)
+    if parity not in ('N', 'E', 'O'):
+        raise ValueError('Paridade serial invalida')
+    p.verify(bus, baud, sid, check_measurement=not save, parity=parity)
     if sid != new_id:
         p.write_once(bus, sid, 0, new_id)
-        p.verify(bus, baud, new_id)
+        p.verify(bus, baud, new_id, check_measurement=not save, parity=parity)
         sid = new_id
     if baud != new_baud:
         p.write_once(bus, sid, 1, p.BAUD_CODES[new_baud])
-    value = p.verify(bus, new_baud, new_id)
-    p.LOG.info('SUCESSO: ID=%d | %d baud | 8N1 | medicao=%s', new_id, new_baud, value)
+    value = p.verify(bus, new_baud, new_id, check_measurement=not save, parity=parity)
+    if save:
+        # Confirmed on the Anhui unit by reading the new ID after a power cycle.
+        p.LOG.info('Gravando configuracao: FC06 ID=%d registro=0x%04X', new_id, SAVE_REGISTER)
+        try:
+            bus.write(new_id, SAVE_REGISTER, 0)
+        except (p.CommunicationError, p.ModbusError) as error:
+            raise p.CommunicationError(f'Falha ao confirmar a gravação no transdutor: {error}') from error
+        p.time.sleep(1)
+        p.verify(bus, new_baud, new_id, check_measurement=False, parity=parity)
+        try:
+            value = p.pressure(bus, new_id, updated_manual=updated_manual)
+        except (p.CommunicationError, p.ModbusError) as error:
+            p.LOG.warning('Configuração gravada. Leitura da medição indisponível: %s', error)
+    p.LOG.info('SUCESSO: ID=%d | %d baud | 8%s1 | medicao=%s', new_id, new_baud, parity, value)
     return value
 
 
 def diagnose(bus, found, new_id, new_baud):
     """Read only after an uncertain write; never retry the write."""
-    candidates = list(dict.fromkeys([(new_baud, new_id)] +
-        [(baud, sid) for baud, _, old_id in found for sid in (new_id, old_id)]))
-    for baud, sid in candidates:
+    candidates = list(dict.fromkeys([(new_baud, parity, new_id) for _, parity, _ in found] +
+        [(baud, parity, sid) for baud, parity, old_id in found for sid in (new_id, old_id)]))
+    for baud, parity, sid in candidates:
         try:
-            p.verify(bus, baud, sid)
+            p.verify(bus, baud, sid, check_measurement=False, parity=parity)
             p.LOG.warning('DIAGNOSTICO: sensor responde em ID=%d / %d baud', sid, baud)
         except p.CommunicationError:
             pass

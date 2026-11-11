@@ -129,14 +129,25 @@ def read_word(bus, sid, address):
     return struct.unpack(">H", bus.read(sid, address, 1))[0]
 
 
-def pressure(bus, sid):
+LEGACY_UNITS = ("sem unidade", "cm", "mm", "MPa", "Pa", "kPa", "mA")
+UPDATED_UNITS = (
+    "MPa", "kPa", "Pa", "bar", "mbar", "kgf/cm²", "psi", "mH₂O",
+    "mmH₂O", "inH₂O", "H₂O", "mHg", "mmHg", "inHg", "atm", "Torr",
+    "m", "cm", "mm", "kg", "°C", "pH", "°F", "sem unidade",
+)
+
+
+def pressure(bus, sid, *, updated_manual=False):
     unit = read_word(bus, sid, 2)
     decimals = read_word(bus, sid, 3)
-    if decimals > 3 or unit > 6:
-        raise CommunicationError("Unidade/casas decimais fora do manual ANHUI")
+    units = UPDATED_UNITS if updated_manual else LEGACY_UNITS
+    max_decimals = 4 if updated_manual else 3
+    if decimals > max_decimals or unit >= len(units):
+        raise CommunicationError(
+            f"Unidade/casas decimais fora do perfil ANHUI: {unit}/{decimals}"
+        )
     raw = struct.unpack(">h", bus.read(sid, 4, 1))[0]
     value = raw / (10 ** decimals)
-    units = {0: "sem unidade", 1: "cm", 2: "mm", 3: "MPa", 4: "Pa", 5: "kPa", 6: "mA"}
     LOG.info("MEDICAO ID=%d: %s %s (Int16=%d; decimais=%d)", sid, value, units[unit], raw, decimals)
     return value
 
@@ -164,20 +175,20 @@ def scan(bus, baudrates, parities, ids):
     return found
 
 
-def verify(bus, baud, sid):
-    bus.configure(baud, "N")
+def verify(bus, baud, sid, *, check_measurement=True, parity="N"):
+    bus.configure(baud, parity)
     for attempt in range(1, 4):
         try:
             actual_id = read_word(bus, sid, 0)
             actual_baud = CODE_BAUDS.get(read_word(bus, sid, 1))
             if (actual_id, actual_baud) != (sid, baud):
                 raise CommunicationError(f"registros nao conferem: ID={actual_id}, baud={actual_baud}")
-            LOG.info("VERIFICADO: registro ID=%d, baud=%d, comunicacao 8N1", actual_id, actual_baud)
-            return pressure(bus, sid)
+            LOG.info("VERIFICADO: registro ID=%d, baud=%d, comunicacao 8%s1", actual_id, actual_baud, parity)
+            return pressure(bus, sid) if check_measurement else None
         except CommunicationError as error:
             LOG.warning("VERIFICACAO tentativa %d/3: %s", attempt, error)
             time.sleep(0.2)
-    raise CommunicationError(f"Nao foi possivel verificar ID={sid}, {baud} 8N1")
+    raise CommunicationError(f"Nao foi possivel verificar ID={sid}, {baud} 8{parity}1")
 
 
 def write_once(bus, sid, address, values):
